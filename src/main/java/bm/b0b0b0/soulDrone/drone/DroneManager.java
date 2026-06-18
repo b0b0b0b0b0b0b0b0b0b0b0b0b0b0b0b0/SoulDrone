@@ -76,6 +76,41 @@ public final class DroneManager {
         return nearest;
     }
 
+    public DeliveryDrone findNearestPunchable(Player player, double maxDistance) {
+        Location eye = player.getEyeLocation();
+        Vector look = eye.getDirection();
+        DeliveryDrone nearest = null;
+        double nearestDistance = maxDistance;
+
+        for (DeliveryDrone drone : activeDrones) {
+            if (!drone.isPunchable()) {
+                continue;
+            }
+            Location anchor = drone.anchorLocation();
+            if (anchor == null || anchor.getWorld() == null || !anchor.getWorld().equals(player.getWorld())) {
+                continue;
+            }
+            double distance = anchor.distance(player.getLocation());
+            if (distance > maxDistance) {
+                continue;
+            }
+            Vector toDrone = anchor.toVector().subtract(eye.toVector());
+            if (toDrone.lengthSquared() < 0.0001) {
+                toDrone = new Vector(0, 0, 1);
+            } else {
+                toDrone.normalize();
+            }
+            if (look.dot(toDrone) < 0.45) {
+                continue;
+            }
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearest = drone;
+            }
+        }
+        return nearest;
+    }
+
     public void shutdown() {
         if (tickTask != null) {
             tickTask.cancel();

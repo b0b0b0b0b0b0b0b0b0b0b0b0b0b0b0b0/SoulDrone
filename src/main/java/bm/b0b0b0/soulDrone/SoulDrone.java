@@ -4,20 +4,30 @@ import bm.b0b0b0.soulDrone.command.SendCommand;
 import bm.b0b0b0.soulDrone.config.ConfigurationLoader;
 import bm.b0b0b0.soulDrone.config.PluginConfig;
 import bm.b0b0b0.soulDrone.data.ReceiverToggleStore;
+import bm.b0b0b0.soulDrone.database.DatabaseBootstrap;
 import bm.b0b0b0.soulDrone.drone.DroneManager;
 import bm.b0b0b0.soulDrone.economy.VaultEconomyService;
 import bm.b0b0b0.soulDrone.lang.MessageService;
 import bm.b0b0b0.soulDrone.listener.DeliveryListener;
+import bm.b0b0b0.soulDrone.listener.PlayerJoinListener;
+import bm.b0b0b0.soulDrone.listener.PlayerQuitListener;
+import bm.b0b0b0.soulDrone.repository.SqlPackageRepository;
 import bm.b0b0b0.soulDrone.service.DeliveryService;
+import bm.b0b0b0.soulDrone.service.StoredPackageService;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class SoulDrone extends JavaPlugin {
 
     private DroneManager droneManager;
     private ReceiverToggleStore receiverToggleStore;
+    private DatabaseBootstrap databaseBootstrap;
 
     @Override
     public void onEnable() {
+        if (!getDataFolder().exists() && !getDataFolder().mkdirs()) {
+            getLogger().warning("Could not create plugin data folder");
+        }
+
         ConfigurationLoader configurationLoader = new ConfigurationLoader(this);
         PluginConfig pluginConfig = new PluginConfig(configurationLoader);
         MessageService messageService = new MessageService(this, pluginConfig.language());
@@ -49,6 +59,33 @@ public final class SoulDrone extends JavaPlugin {
                 new DeliveryListener(pluginConfig, deliveryService, droneManager),
                 this
         );
+        getServer().getPluginManager().registerEvents(
+                new PlayerJoinListener(deliveryService),
+                this
+        );
+        getServer().getPluginManager().registerEvents(
+                new PlayerQuitListener(deliveryService),
+                this
+        );
+
+        databaseBootstrap = new DatabaseBootstrap(this, pluginConfig);
+        databaseBootstrap.start().whenComplete((ignored, error) -> getServer().getScheduler().runTask(this, () -> {
+            if (error != null) {
+                getLogger().severe("Package database failed to start: " + error.getMessage());
+                error.printStackTrace();
+                return;
+            }
+            SqlPackageRepository repository = new SqlPackageRepository(databaseBootstrap, pluginConfig);
+            StoredPackageService storedPackageService = new StoredPackageService(
+                    this,
+                    pluginConfig,
+                    messageService,
+                    repository
+            );
+            storedPackageService.setDeliveryService(deliveryService);
+            deliveryService.setStoredPackageService(storedPackageService);
+            getLogger().info("Package storage ready");
+        }));
     }
 
     @Override
@@ -58,6 +95,9 @@ public final class SoulDrone extends JavaPlugin {
         }
         if (receiverToggleStore != null) {
             receiverToggleStore.save();
+        }
+        if (databaseBootstrap != null) {
+            databaseBootstrap.shutdown();
         }
     }
 

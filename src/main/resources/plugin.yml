@@ -9,12 +9,14 @@ softdepend:
 
 libraries:
   - net.elytrium:serializer:1.1.1
+  - com.zaxxer:HikariCP:5.1.0
+  - org.xerial:sqlite-jdbc:3.45.3.0
 
 commands:
   send:
     description: Send a package via delivery drone
     aliases: [ drone, posylka ]
-    usage: /send <player|accept|deny>
+    usage: /send <player|accept|deny|toggle|claim|refuse>
 
 permissions:
   soulDrone.send:

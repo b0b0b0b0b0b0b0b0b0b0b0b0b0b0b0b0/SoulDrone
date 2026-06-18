@@ -10,8 +10,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 
 public final class MessageService {
@@ -19,6 +22,7 @@ public final class MessageService {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final Map<String, String> messages = new HashMap<>();
+    private final List<String> dronePunchLines = new ArrayList<>();
 
     public MessageService(JavaPlugin plugin, String language) {
         load(plugin, language);
@@ -40,6 +44,14 @@ public final class MessageService {
         return raw;
     }
 
+    public Component randomDronePunchLine() {
+        if (dronePunchLines.isEmpty()) {
+            return component("drone-punch-fallback");
+        }
+        String line = dronePunchLines.get(ThreadLocalRandom.current().nextInt(dronePunchLines.size()));
+        return MINI_MESSAGE.deserialize(line);
+    }
+
     private void load(JavaPlugin plugin, String language) {
         File langDir = new File(plugin.getDataFolder(), "lang");
         if (!langDir.exists() && !langDir.mkdirs()) {
@@ -59,6 +71,12 @@ public final class MessageService {
         for (String key : yaml.getKeys(true)) {
             if (yaml.isString(key)) {
                 messages.put(key, yaml.getString(key));
+            }
+        }
+        dronePunchLines.clear();
+        for (String line : yaml.getStringList("drone-punch-lines")) {
+            if (line != null && !line.isBlank()) {
+                dronePunchLines.add(line);
             }
         }
     }

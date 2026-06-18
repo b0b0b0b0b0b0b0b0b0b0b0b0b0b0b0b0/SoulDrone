@@ -2,11 +2,11 @@ package bm.b0b0b0.soulDrone.gui;
 
 import bm.b0b0b0.soulDrone.config.PluginConfig;
 import bm.b0b0b0.soulDrone.lang.MessageService;
+import bm.b0b0b0.soulDrone.model.StoredPackageKind;
 import bm.b0b0b0.soulDrone.util.CargoLayout;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -16,29 +16,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public final class DeliveryCargoMenu implements InventoryHolder {
+public final class StoredPickupMenu implements InventoryHolder {
 
-    private final UUID droneId;
-    private final UUID senderId;
-    private final String receiverName;
+    private final UUID packageId;
+    private final UUID ownerId;
+    private final StoredPackageKind kind;
+    private final String counterpartName;
     private final Inventory inventory;
     private final List<Integer> cargoSlots;
 
-    public DeliveryCargoMenu(
+    public StoredPickupMenu(
             PluginConfig config,
             MessageService messages,
-            UUID droneId,
-            Player sender,
-            String receiverName
+            UUID packageId,
+            UUID ownerId,
+            StoredPackageKind kind,
+            String counterpartName,
+            Map<Integer, ItemStack> cargo
     ) {
-        this.droneId = droneId;
-        this.senderId = sender.getUniqueId();
-        this.receiverName = receiverName;
+        this.packageId = packageId;
+        this.ownerId = ownerId;
+        this.kind = kind;
+        this.counterpartName = counterpartName;
         this.cargoSlots = config.sortedCargoSlots();
 
-        Component title = messages.component("gui-title", receiverName);
+        Component title = kind == StoredPackageKind.TO_RECEIVER
+                ? messages.component("gui-pickup-title", counterpartName)
+                : messages.component("gui-return-title", counterpartName);
         this.inventory = Bukkit.createInventory(this, config.guiSize(), title);
         fillBackground(config);
+        CargoLayout.populate(inventory, cargoSlots, cargo);
     }
 
     @Override
@@ -46,40 +53,32 @@ public final class DeliveryCargoMenu implements InventoryHolder {
         return inventory;
     }
 
-    public UUID droneId() {
-        return droneId;
+    public UUID packageId() {
+        return packageId;
     }
 
-    public UUID senderId() {
-        return senderId;
+    public UUID ownerId() {
+        return ownerId;
+    }
+
+    public StoredPackageKind kind() {
+        return kind;
     }
 
     public boolean isCargoSlot(int slot) {
         return cargoSlots.contains(slot);
     }
 
-    public boolean hasCargo() {
-        return CargoLayout.hasItems(extractCargoBySlot());
+    public boolean hasRemainingCargo() {
+        return CargoLayout.hasItems(collectRemainingCargoBySlot());
     }
 
-    public Map<Integer, ItemStack> extractCargoBySlot() {
-        return CargoLayout.extractBySlot(inventory, cargoSlots);
-    }
-
-    public void returnCargoToPlayer(Player player) {
+    public Map<Integer, ItemStack> collectRemainingCargoBySlot() {
+        Map<Integer, ItemStack> remaining = CargoLayout.extractBySlot(inventory, cargoSlots);
         for (int slot : cargoSlots) {
-            ItemStack item = inventory.getItem(slot);
-            if (item == null || item.isEmpty()) {
-                continue;
-            }
-            var leftover = player.getInventory().addItem(item.clone());
             inventory.setItem(slot, null);
-            if (!leftover.isEmpty()) {
-                for (ItemStack drop : leftover.values()) {
-                    player.getWorld().dropItemNaturally(player.getLocation(), drop);
-                }
-            }
         }
+        return remaining;
     }
 
     private void fillBackground(PluginConfig config) {

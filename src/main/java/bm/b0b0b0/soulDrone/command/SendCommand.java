@@ -4,6 +4,7 @@ import bm.b0b0b0.soulDrone.config.PluginConfig;
 import bm.b0b0b0.soulDrone.lang.MessageService;
 import bm.b0b0b0.soulDrone.service.DeliveryService;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -13,6 +14,7 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public final class SendCommand implements CommandExecutor, TabCompleter {
 
@@ -48,6 +50,12 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
         if (matchesSubcommand(first, config.toggleSubcommand())) {
             return handleToggle(player, args);
         }
+        if (matchesSubcommand(first, config.claimSubcommand())) {
+            return handleClaim(player, args);
+        }
+        if (matchesSubcommand(first, config.refuseSubcommand())) {
+            return handleRefuse(player, args);
+        }
 
         if (!player.hasPermission(config.sendPermission())) {
             player.sendMessage(messages.component("no-permission"));
@@ -59,24 +67,53 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        Player target = Bukkit.getPlayerExact(args[0]);
-        if (target == null) {
-            player.sendMessage(messages.component("target-not-found", args[0]));
+        return handleSendToTarget(player, args[0]);
+    }
+
+    private boolean handleSendToTarget(Player sender, String targetName) {
+        Player online = Bukkit.getPlayerExact(targetName);
+        if (online != null) {
+            if (online.getUniqueId().equals(sender.getUniqueId())) {
+                sender.sendMessage(messages.component("target-self"));
+                return true;
+            }
+            deliveryService.initiateSend(sender, online);
             return true;
         }
 
-        if (!target.isOnline()) {
-            player.sendMessage(messages.component("target-offline"));
+        if (!config.allowOfflineSend()) {
+            sender.sendMessage(messages.component("target-offline"));
             return true;
         }
 
-        if (target.getUniqueId().equals(player.getUniqueId())) {
-            player.sendMessage(messages.component("target-self"));
+        OfflinePlayer offline = resolveOfflinePlayer(targetName);
+        if (offline == null || !offline.hasPlayedBefore()) {
+            sender.sendMessage(messages.component("target-not-found", targetName));
             return true;
         }
 
-        deliveryService.initiateSend(player, target);
+        UUID targetId = offline.getUniqueId();
+        if (targetId.equals(sender.getUniqueId())) {
+            sender.sendMessage(messages.component("target-self"));
+            return true;
+        }
+
+        String resolvedName = offline.getName() != null ? offline.getName() : targetName;
+        deliveryService.initiateSend(sender, targetId, resolvedName, false);
         return true;
+    }
+
+    private OfflinePlayer resolveOfflinePlayer(String name) {
+        OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(name);
+        if (cached != null) {
+            return cached;
+        }
+        for (OfflinePlayer offline : Bukkit.getOfflinePlayers()) {
+            if (offline.getName() != null && offline.getName().equalsIgnoreCase(name)) {
+                return offline;
+            }
+        }
+        return null;
     }
 
     private boolean handleAccept(Player player, String[] args) {
@@ -108,6 +145,34 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleClaim(Player player, String[] args) {
+        if (!player.hasPermission(config.receivePermission())) {
+            player.sendMessage(messages.component("no-receive-permission"));
+            return true;
+        }
+        if (args.length > 2) {
+            player.sendMessage(messages.component("send-usage"));
+            return true;
+        }
+        String packageId = args.length == 2 ? args[1] : null;
+        deliveryService.claimStored(player, packageId);
+        return true;
+    }
+
+    private boolean handleRefuse(Player player, String[] args) {
+        if (!player.hasPermission(config.denyPermission())) {
+            player.sendMessage(messages.component("no-deny-permission"));
+            return true;
+        }
+        if (args.length > 2) {
+            player.sendMessage(messages.component("send-usage"));
+            return true;
+        }
+        String packageId = args.length == 2 ? args[1] : null;
+        deliveryService.refuseStored(player, packageId);
+        return true;
+    }
+
     private static boolean matchesSubcommand(String input, String configured) {
         return input.equals(configured.toLowerCase(Locale.ROOT));
     }
@@ -122,18 +187,12 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
             List<String> suggestions = new ArrayList<>();
             String prefix = args[0].toLowerCase(Locale.ROOT);
 
-            if (player.hasPermission(config.acceptPermission())
-                    && config.acceptSubcommand().toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                suggestions.add(config.acceptSubcommand());
-            }
-            if (player.hasPermission(config.denyPermission())
-                    && config.denySubcommand().toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                suggestions.add(config.denySubcommand());
-            }
-            if (player.hasPermission(config.togglePermission())
-                    && config.toggleSubcommand().toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                suggestions.add(config.toggleSubcommand());
-            }
+            addSubcommandSuggestion(suggestions, prefix, config.acceptSubcommand(), config.acceptPermission(), player);
+            addSubcommandSuggestion(suggestions, prefix, config.denySubcommand(), config.denyPermission(), player);
+            addSubcommandSuggestion(suggestions, prefix, config.toggleSubcommand(), config.togglePermission(), player);
+            addSubcommandSuggestion(suggestions, prefix, config.claimSubcommand(), config.receivePermission(), player);
+            addSubcommandSuggestion(suggestions, prefix, config.refuseSubcommand(), config.denyPermission(), player);
+
             if (player.hasPermission(config.sendPermission())) {
                 for (Player online : Bukkit.getOnlinePlayers()) {
                     if (online.equals(player)) {
@@ -149,22 +208,33 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             String sub = args[0].toLowerCase(Locale.ROOT);
-            if (!matchesSubcommand(sub, config.acceptSubcommand())
-                    && !matchesSubcommand(sub, config.denySubcommand())) {
-                return List.of();
-            }
-
-            String prefix = args[1].toLowerCase(Locale.ROOT);
-            List<String> names = new ArrayList<>();
-            for (Player online : Bukkit.getOnlinePlayers()) {
-                if (online.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
-                    names.add(online.getName());
+            if (matchesSubcommand(sub, config.acceptSubcommand())
+                    || matchesSubcommand(sub, config.denySubcommand())) {
+                String prefix = args[1].toLowerCase(Locale.ROOT);
+                List<String> names = new ArrayList<>();
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (online.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                        names.add(online.getName());
+                    }
                 }
+                return names;
             }
-            return names;
         }
 
         return List.of();
+    }
+
+    private static void addSubcommandSuggestion(
+            List<String> suggestions,
+            String prefix,
+            String subcommand,
+            String permission,
+            Player player
+    ) {
+        if (player.hasPermission(permission)
+                && subcommand.toLowerCase(Locale.ROOT).startsWith(prefix)) {
+            suggestions.add(subcommand);
+        }
     }
 
 }

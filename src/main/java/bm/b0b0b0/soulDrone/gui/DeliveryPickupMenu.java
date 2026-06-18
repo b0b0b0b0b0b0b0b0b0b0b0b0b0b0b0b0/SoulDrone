@@ -6,7 +6,6 @@ import bm.b0b0b0.soulDrone.util.CargoLayout;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -16,29 +15,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public final class DeliveryCargoMenu implements InventoryHolder {
+public final class DeliveryPickupMenu implements InventoryHolder {
 
     private final UUID droneId;
+    private final UUID receiverId;
     private final UUID senderId;
-    private final String receiverName;
+    private final String senderName;
     private final Inventory inventory;
     private final List<Integer> cargoSlots;
 
-    public DeliveryCargoMenu(
+    public DeliveryPickupMenu(
             PluginConfig config,
             MessageService messages,
             UUID droneId,
-            Player sender,
-            String receiverName
+            UUID receiverId,
+            UUID senderId,
+            String senderName,
+            Map<Integer, ItemStack> cargo
     ) {
         this.droneId = droneId;
-        this.senderId = sender.getUniqueId();
-        this.receiverName = receiverName;
+        this.receiverId = receiverId;
+        this.senderId = senderId;
+        this.senderName = senderName;
         this.cargoSlots = config.sortedCargoSlots();
 
-        Component title = messages.component("gui-title", receiverName);
+        Component title = messages.component("gui-pickup-title", senderName);
         this.inventory = Bukkit.createInventory(this, config.guiSize(), title);
         fillBackground(config);
+        CargoLayout.populate(inventory, cargoSlots, cargo);
     }
 
     @Override
@@ -50,6 +54,10 @@ public final class DeliveryCargoMenu implements InventoryHolder {
         return droneId;
     }
 
+    public UUID receiverId() {
+        return receiverId;
+    }
+
     public UUID senderId() {
         return senderId;
     }
@@ -58,28 +66,16 @@ public final class DeliveryCargoMenu implements InventoryHolder {
         return cargoSlots.contains(slot);
     }
 
-    public boolean hasCargo() {
-        return CargoLayout.hasItems(extractCargoBySlot());
+    public boolean hasRemainingCargo() {
+        return CargoLayout.hasItems(collectRemainingCargoBySlot());
     }
 
-    public Map<Integer, ItemStack> extractCargoBySlot() {
-        return CargoLayout.extractBySlot(inventory, cargoSlots);
-    }
-
-    public void returnCargoToPlayer(Player player) {
+    public Map<Integer, ItemStack> collectRemainingCargoBySlot() {
+        Map<Integer, ItemStack> remaining = CargoLayout.extractBySlot(inventory, cargoSlots);
         for (int slot : cargoSlots) {
-            ItemStack item = inventory.getItem(slot);
-            if (item == null || item.isEmpty()) {
-                continue;
-            }
-            var leftover = player.getInventory().addItem(item.clone());
             inventory.setItem(slot, null);
-            if (!leftover.isEmpty()) {
-                for (ItemStack drop : leftover.values()) {
-                    player.getWorld().dropItemNaturally(player.getLocation(), drop);
-                }
-            }
         }
+        return remaining;
     }
 
     private void fillBackground(PluginConfig config) {

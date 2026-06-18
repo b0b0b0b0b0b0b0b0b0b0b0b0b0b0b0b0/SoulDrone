@@ -16,7 +16,6 @@ public final class PluginConfig {
     private final GuiDeliverySettings guiSettings;
     private final List<DroneVisual.SegmentSpec> segmentSpecs;
     private final Set<Integer> cargoSlots;
-
     public PluginConfig(ConfigurationLoader loader) {
         this.settings = loader.settings();
         this.guiSettings = loader.guiSettings();
@@ -30,6 +29,34 @@ public final class PluginConfig {
 
     public boolean requireVault() {
         return settings.requireVault;
+    }
+
+    public String sqliteFile() {
+        return settings.sqliteFile;
+    }
+
+    public int databasePoolSize() {
+        return Math.max(1, settings.databasePoolSize);
+    }
+
+    public long packageStorageMillis() {
+        return Math.max(3600000L, (long) (settings.packageStorageDays * 86400000.0));
+    }
+
+    public boolean allowOfflineSend() {
+        return settings.allowOfflineSend;
+    }
+
+    public boolean autoAcceptOffline() {
+        return settings.autoAcceptOffline;
+    }
+
+    public String claimSubcommand() {
+        return settings.claimSubcommand;
+    }
+
+    public String refuseSubcommand() {
+        return settings.refuseSubcommand;
     }
 
     public boolean requireReceiverAccept() {
@@ -48,12 +75,44 @@ public final class PluginConfig {
         return Math.max(20, (int) Math.round(settings.receiverWaitSeconds * 20.0));
     }
 
+    public int partialPickupWaitTicks() {
+        return Math.max(20, (int) Math.round(settings.partialPickupWaitSeconds * 20.0));
+    }
+
+    public double partialPickupWaitSeconds() {
+        return Math.max(1.0, settings.partialPickupWaitSeconds);
+    }
+
     public double spawnDistance() {
         return Math.max(1.0, settings.spawnDistance);
     }
 
     public double spawnHeight() {
-        return Math.max(0.5, settings.spawnHeight);
+        return Math.max(0.2, settings.spawnHeight);
+    }
+
+    public double followSideOffset() {
+        return settings.followSideOffset;
+    }
+
+    public double followIdleRadius() {
+        return Math.max(0.5, settings.followIdleRadius);
+    }
+
+    public double followMaxSpeed() {
+        return Math.max(0.02, Math.min(0.5, settings.followMaxSpeed));
+    }
+
+    public double followYawThreshold() {
+        return Math.max(5.0, settings.followYawThreshold);
+    }
+
+    public double followYawLerp() {
+        return Math.max(0.02, Math.min(1.0, settings.followYawLerp));
+    }
+
+    public double followLerp() {
+        return Math.max(0.05, Math.min(1.0, settings.followLerp));
     }
 
     public double landingDistance() {
@@ -106,6 +165,66 @@ public final class PluginConfig {
 
     public float blockScale() {
         return Math.max(0.2f, Math.min(1.5f, settings.blockScale));
+    }
+
+    public boolean cargoPreviewOnSneak() {
+        return settings.cargoPreviewOnSneak;
+    }
+
+    public boolean droneParticlesEnabled() {
+        return settings.droneParticlesEnabled;
+    }
+
+    public boolean droneSoundsEnabled() {
+        return settings.droneSoundsEnabled;
+    }
+
+    public int droneSoundLoopIntervalTicks() {
+        return Math.max(1, settings.droneSoundLoopIntervalTicks);
+    }
+
+    public SoulDroneSettings.DroneSoundEntry droneSoundLoop() {
+        return soundEntry(settings.droneSoundLoop, "ENTITY_BEE_LOOP", 0.65f, 1.12f);
+    }
+
+    public SoulDroneSettings.DroneSoundEntry droneSoundAssemblyReady() {
+        return soundEntry(settings.droneSoundAssemblyReady, "BLOCK_AMETHYST_BLOCK_CHIME", 0.8f, 1.2f);
+    }
+
+    public SoulDroneSettings.DroneSoundEntry droneSoundArrivalReady() {
+        return soundEntry(settings.droneSoundArrivalReady, "BLOCK_AMETHYST_BLOCK_CHIME", 0.9f, 0.9f);
+    }
+
+    public SoulDroneSettings.DroneSoundEntry droneSoundDeparturePrimary() {
+        return soundEntry(settings.droneSoundDeparturePrimary, "BLOCK_BEACON_DEACTIVATE", 0.55f, 1.35f);
+    }
+
+    public SoulDroneSettings.DroneSoundEntry droneSoundDepartureSecondary() {
+        return soundEntry(settings.droneSoundDepartureSecondary, "ENTITY_ENDERMAN_TELEPORT", 0.45f, 0.85f);
+    }
+
+    public boolean dronePunchEnabled() {
+        return settings.dronePunchEnabled;
+    }
+
+    public double dronePunchDamage() {
+        return Math.max(0.0, settings.dronePunchDamage);
+    }
+
+    public double dronePunchKnockback() {
+        return Math.max(0.0, settings.dronePunchKnockback);
+    }
+
+    public int dronePunchCooldownTicks() {
+        return Math.max(0, settings.dronePunchCooldownTicks);
+    }
+
+    public double dronePunchBroadcastRadius() {
+        return Math.max(1.0, settings.dronePunchBroadcastRadius);
+    }
+
+    public double dronePunchReach() {
+        return Math.max(1.5, settings.dronePunchReach);
     }
 
     public String accentHex() {
@@ -161,6 +280,12 @@ public final class PluginConfig {
             return Material.GRAY_STAINED_GLASS_PANE;
         }
         return material;
+    }
+
+    public List<Integer> sortedCargoSlots() {
+        List<Integer> slots = new ArrayList<>(cargoSlots);
+        slots.sort(Integer::compareTo);
+        return slots;
     }
 
     public Set<Integer> cargoSlots() {
@@ -235,6 +360,18 @@ public final class PluginConfig {
             material = Material.PURPLE_CONCRETE;
         }
         return new DroneVisual.SegmentSpec(entry.forward, entry.lateral, entry.vertical, material);
+    }
+
+    private static SoulDroneSettings.DroneSoundEntry soundEntry(
+            SoulDroneSettings.DroneSoundEntry entry,
+            String defaultSound,
+            float defaultVolume,
+            float defaultPitch
+    ) {
+        if (entry == null || entry.sound == null || entry.sound.isBlank()) {
+            return new SoulDroneSettings.DroneSoundEntry(defaultSound, defaultVolume, defaultPitch);
+        }
+        return entry;
     }
 
 }

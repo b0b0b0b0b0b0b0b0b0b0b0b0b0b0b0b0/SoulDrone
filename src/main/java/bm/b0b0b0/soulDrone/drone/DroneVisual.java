@@ -6,6 +6,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
@@ -13,7 +14,6 @@ import org.bukkit.entity.Interaction;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.util.Vector;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.ArrayList;
@@ -23,12 +23,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class DroneVisual {
 
-    private final List<BlockDisplay> displays = new ArrayList<>();
+    private static final int MOVE_INTERPOLATION_TICKS = 2;
+
+    private final List<Display> partDisplays = new ArrayList<>();
     private final List<UUID> entityIds = new ArrayList<>();
-    private final Matrix4f[] segmentMatrices;
-    private final SegmentSpec[] segments;
+    private final Matrix4f[] partMatrices;
     private final Vector restForward;
-    private final float blockScale;
     private TextDisplay label;
     private Interaction hitbox;
     private final boolean labelEnabled;
@@ -36,6 +36,10 @@ public final class DroneVisual {
     private final int labelBackgroundArgb;
     private final float hitboxWidth;
     private final float hitboxHeight;
+    private final boolean particlesEnabled;
+    private final float blockScale;
+    private final List<Vector3f> fanLocalPoints;
+    private final Vector3f smokeLocalPoint;
 
     public DroneVisual(
             PluginConfig config,
@@ -45,32 +49,30 @@ public final class DroneVisual {
             String receiverName,
             String senderName
     ) {
-        this.segments = config.segmentSpecs().toArray(new SegmentSpec[0]);
-        this.segmentMatrices = new Matrix4f[segments.length];
-        this.blockScale = config.blockScale();
-        this.restForward = restForwardFromSegments(segments, blockScale);
         this.labelEnabled = config.labelEnabled();
         this.labelOffsetY = config.labelOffsetY();
         this.labelBackgroundArgb = config.labelBackgroundArgb();
         this.hitboxWidth = config.hitboxWidth();
         this.hitboxHeight = config.hitboxHeight();
+        this.particlesEnabled = config.droneParticlesEnabled();
 
+        SegmentSpec[] segments = config.segmentSpecs().toArray(new SegmentSpec[0]);
+        float blockScale = config.blockScale();
+        this.blockScale = blockScale;
+        this.fanLocalPoints = fanPointsFromSegments(segments, blockScale);
+        this.smokeLocalPoint = smokePointFromSegments(segments, blockScale);
+        partMatrices = new Matrix4f[segments.length];
         for (int index = 0; index < segments.length; index++) {
             SegmentSpec segment = segments[index];
-            segmentMatrices[index] = localMatrix(segment);
+            partMatrices[index] = localMatrix(segment, blockScale);
             BlockDisplay display = world.spawn(pivot, BlockDisplay.class, entity -> {
                 entity.setBlock(segment.material().createBlockData());
-                entity.setBillboard(Display.Billboard.FIXED);
-                entity.setPersistent(false);
-                entity.setGravity(false);
-                entity.setBrightness(new Display.Brightness(15, 15));
-                entity.setInterpolationDuration(0);
-                entity.setInterpolationDelay(0);
-                entity.setTeleportDuration(0);
+                configureDisplay(entity, 15, 15);
             });
-            displays.add(display);
+            partDisplays.add(display);
             entityIds.add(display.getUniqueId());
         }
+        this.restForward = restForwardFromSegments(segments, blockScale);
 
         if (labelEnabled) {
             Component text = messages.component("drone-label", receiverName, senderName);
@@ -81,13 +83,12 @@ public final class DroneVisual {
                 entity.setSeeThrough(true);
                 entity.setShadowed(true);
                 entity.setDefaultBackground(false);
+                entity.setGravity(false);
+                entity.setBrightness(new Display.Brightness(15, 15));
+                entity.setInterpolationDelay(0);
                 if (labelBackgroundArgb != 0) {
                     entity.setBackgroundColor(Color.fromARGB(labelBackgroundArgb));
                 }
-                entity.setBrightness(new Display.Brightness(15, 15));
-                entity.setInterpolationDuration(0);
-                entity.setInterpolationDelay(0);
-                entity.setTeleportDuration(0);
             });
             entityIds.add(label.getUniqueId());
         }
@@ -108,8 +109,8 @@ public final class DroneVisual {
 
     public Matrix4f[] createAssemblyStartMatrices() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        Matrix4f[] matrices = new Matrix4f[segments.length];
-        for (int index = 0; index < segments.length; index++) {
+        Matrix4f[] matrices = new Matrix4f[partMatrices.length];
+        for (int index = 0; index < partMatrices.length; index++) {
             float scatterX = random.nextFloat(-5f, 5f);
             float scatterY = random.nextFloat(-2.5f, 3.5f);
             float scatterZ = random.nextFloat(-5f, 5f);
@@ -136,13 +137,13 @@ public final class DroneVisual {
         Matrix4f rotation = matrixFromYawPitch(yaw, pitch, restForward);
         float spinStrength = (1f - progress) * (float) Math.toRadians(22f);
 
-        for (int index = 0; index < displays.size(); index++) {
-            Matrix4f end = new Matrix4f(rotation).mul(segmentMatrices[index]);
+        for (int index = 0; index < partDisplays.size(); index++) {
+            Matrix4f end = new Matrix4f(rotation).mul(partMatrices[index]);
             Matrix4f current = new Matrix4f(startMatrices[index]).lerp(end, progress);
             if (spinStrength > 0.001f) {
                 current.rotateY(spinStrength * spinTick);
             }
-            applyMatrix(displays.get(index), pivot, current);
+            applyMatrix(partDisplays.get(index), pivot, current);
         }
         updateLabel(pivot);
         updateHitbox(pivot);
@@ -158,19 +159,19 @@ public final class DroneVisual {
             rotation.rotateY(extraSpinRadians);
         }
 
-        for (int index = 0; index < displays.size(); index++) {
-            Matrix4f matrix = new Matrix4f(rotation).mul(segmentMatrices[index]);
-            applyMatrix(displays.get(index), pivot, matrix);
+        for (int index = 0; index < partDisplays.size(); index++) {
+            Matrix4f matrix = new Matrix4f(rotation).mul(partMatrices[index]);
+            applyMatrix(partDisplays.get(index), pivot, matrix);
         }
         updateLabel(pivot);
         updateHitbox(pivot);
     }
 
     public void remove() {
-        for (BlockDisplay display : displays) {
+        for (Display display : partDisplays) {
             display.remove();
         }
-        displays.clear();
+        partDisplays.clear();
         if (label != null) {
             label.remove();
             label = null;
@@ -180,6 +181,25 @@ public final class DroneVisual {
             hitbox = null;
         }
         entityIds.clear();
+    }
+
+    public void spawnAmbientParticles(World world, Location pivot, float yaw, float pitch, int tick) {
+        if (!particlesEnabled || fanLocalPoints.isEmpty()) {
+            return;
+        }
+
+        Matrix4f rotation = matrixFromYawPitch(yaw, pitch, restForward);
+        float fallCycle = (tick % 12) * blockScale * 0.04f;
+
+        for (Vector3f fanLocal : fanLocalPoints) {
+            Location fanBase = transformLocalPoint(pivot, rotation, fanLocal);
+            Location falling = fanBase.clone().subtract(0, fallCycle, 0);
+            world.spawnParticle(Particle.SMOKE, falling, 1, 0.035, 0.015, 0.035, 0.002);
+        }
+
+        Location smoke = transformLocalPoint(pivot, rotation, smokeLocalPoint);
+        world.spawnParticle(Particle.CAMPFIRE_COSY_SMOKE, smoke, 1, 0.04, 0.05, 0.04, 0.006);
+        world.spawnParticle(Particle.SMOKE, smoke, 1, 0.03, 0.06, 0.03, 0.004);
     }
 
     public static Vector noseDirection(float yaw, float pitch) {
@@ -197,19 +217,21 @@ public final class DroneVisual {
     }
 
     public static Matrix4f matrixFromYawPitch(float yaw, float pitch, Vector restForward) {
-        Vector target = noseDirection(yaw, pitch);
-        Quaternionf rotation = new Quaternionf().rotationTo(
-                (float) restForward.getX(),
-                (float) restForward.getY(),
-                (float) restForward.getZ(),
-                (float) target.getX(),
-                (float) target.getY(),
-                (float) target.getZ()
-        );
-        return new Matrix4f().rotate(rotation);
+        float restYaw = (float) Math.toDegrees(Math.atan2(-restForward.getX(), restForward.getZ()));
+        return new Matrix4f()
+                .rotateY((float) Math.toRadians(yaw - restYaw))
+                .rotateX((float) Math.toRadians(pitch));
     }
 
-    private Matrix4f localMatrix(SegmentSpec segment) {
+    private static void configureDisplay(Display entity, int blockLight, int skyLight) {
+        entity.setBillboard(Display.Billboard.FIXED);
+        entity.setPersistent(false);
+        entity.setGravity(false);
+        entity.setBrightness(new Display.Brightness(blockLight, skyLight));
+        entity.setInterpolationDelay(0);
+    }
+
+    private static Matrix4f localMatrix(SegmentSpec segment, float blockScale) {
         return new Matrix4f()
                 .translate(
                         segment.lateral() * blockScale,
@@ -222,10 +244,9 @@ public final class DroneVisual {
                 .translate(-0.5f, -0.5f, -0.5f);
     }
 
-    private void applyMatrix(BlockDisplay display, Location pivot, Matrix4f matrix) {
-        display.setInterpolationDuration(0);
-        display.setInterpolationDelay(0);
-        display.setTeleportDuration(0);
+    private void applyMatrix(Display display, Location pivot, Matrix4f matrix) {
+        display.setInterpolationDuration(MOVE_INTERPOLATION_TICKS);
+        display.setTeleportDuration(MOVE_INTERPOLATION_TICKS);
         display.teleport(pivot);
         display.setTransformationMatrix(matrix);
     }
@@ -235,9 +256,8 @@ public final class DroneVisual {
             return;
         }
         Location labelLocation = pivot.clone().add(0, labelOffsetY, 0);
-        label.setInterpolationDuration(0);
-        label.setInterpolationDelay(0);
-        label.setTeleportDuration(0);
+        label.setInterpolationDuration(MOVE_INTERPOLATION_TICKS);
+        label.setTeleportDuration(MOVE_INTERPOLATION_TICKS);
         label.teleport(labelLocation);
     }
 
@@ -261,15 +281,51 @@ public final class DroneVisual {
     }
 
     private static Vector3f segmentPointLocal(SegmentSpec segment, float x, float y, float z, float scale) {
-        Matrix4f matrix = new Matrix4f()
-                .translate(segment.lateral() * scale, segment.vertical() * scale, segment.forward() * scale)
-                .translate(-0.5f, -0.5f, -0.5f)
-                .translate(0.5f, 0.5f, 0.5f)
-                .scale(scale)
-                .translate(-0.5f, -0.5f, -0.5f);
+        Matrix4f matrix = localMatrix(segment, scale);
         Vector3f point = new Vector3f(x, y, z);
         matrix.transformPosition(point);
         return point;
+    }
+
+    private static List<Vector3f> fanPointsFromSegments(SegmentSpec[] segments, float scale) {
+        List<Vector3f> points = new ArrayList<>();
+        for (SegmentSpec segment : segments) {
+            if (segment.forward() == 0 && segment.lateral() == 0 && segment.vertical() == 0) {
+                continue;
+            }
+            if (segment.material() == Material.SHULKER_BOX) {
+                continue;
+            }
+            points.add(segmentPointLocal(segment, 0.5f, 0.08f, 0.5f, scale));
+        }
+        return points;
+    }
+
+    private static Vector3f smokePointFromSegments(SegmentSpec[] segments, float scale) {
+        SegmentSpec center = segments.length > 0 ? segments[0] : null;
+        for (SegmentSpec segment : segments) {
+            if (segment.forward() == 0 && segment.lateral() == 0 && segment.vertical() == 0) {
+                center = segment;
+                break;
+            }
+        }
+        if (center == null) {
+            return new Vector3f(0f, scale * 0.6f, 0f);
+        }
+        Vector3f top = segmentPointLocal(center, 0.5f, 1f, 0.5f, scale);
+        top.y += scale * 0.12f;
+        return top;
+    }
+
+    private static Location transformLocalPoint(Location pivot, Matrix4f rotation, Vector3f local) {
+        Vector3f point = new Vector3f(local);
+        rotation.transformPosition(point);
+        return new Location(
+                pivot.getWorld(),
+                pivot.getX() + point.x,
+                pivot.getY() + point.y,
+                pivot.getZ() + point.z
+        );
     }
 
     public record SegmentSpec(int forward, int lateral, int vertical, Material material) {
