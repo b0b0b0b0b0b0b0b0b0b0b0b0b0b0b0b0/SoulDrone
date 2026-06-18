@@ -332,6 +332,24 @@ public final class PluginConfig {
         return settings.bypassCostPermission;
     }
 
+    public String bypassZonesPermission() {
+        return settings.bypassZonesPermission;
+    }
+
+    public List<String> blockedWorlds() {
+        if (settings.blockedWorlds == null) {
+            return List.of();
+        }
+        return settings.blockedWorlds;
+    }
+
+    public List<String> blockedRegions() {
+        if (settings.blockedRegions == null) {
+            return List.of();
+        }
+        return settings.blockedRegions;
+    }
+
     public String language() {
         return settings.language;
     }

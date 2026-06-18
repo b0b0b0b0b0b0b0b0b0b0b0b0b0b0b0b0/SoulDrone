@@ -15,6 +15,7 @@ import bm.b0b0b0.soulDrone.model.DeliveryRequest;
 import bm.b0b0b0.soulDrone.model.StoredPackage;
 import bm.b0b0b0.soulDrone.model.StoredPackageKind;
 import bm.b0b0b0.soulDrone.util.CargoLayout;
+import bm.b0b0b0.soulDrone.zone.BlockedZoneService;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -38,6 +39,7 @@ public final class DeliveryService {
     private final VaultEconomyService economy;
     private final DroneManager droneManager;
     private final ReceiverToggleStore receiverToggleStore;
+    private final BlockedZoneService blockedZones;
     private StoredPackageService storedPackageService;
 
     private final Map<UUID, DeliveryDrone> senderDrones = new HashMap<>();
@@ -54,7 +56,8 @@ public final class DeliveryService {
             MessageService messages,
             VaultEconomyService economy,
             DroneManager droneManager,
-            ReceiverToggleStore receiverToggleStore
+            ReceiverToggleStore receiverToggleStore,
+            BlockedZoneService blockedZones
     ) {
         this.plugin = plugin;
         this.config = config;
@@ -62,6 +65,7 @@ public final class DeliveryService {
         this.economy = economy;
         this.droneManager = droneManager;
         this.receiverToggleStore = receiverToggleStore;
+        this.blockedZones = blockedZones;
     }
 
     public void setStoredPackageService(StoredPackageService storedPackageService) {
@@ -179,6 +183,17 @@ public final class DeliveryService {
             return false;
         }
 
+        if (!blockedZones.checkSender(sender)) {
+            return false;
+        }
+
+        if (targetOnline) {
+            Player receiver = Bukkit.getPlayer(targetId);
+            if (receiver != null && !blockedZones.checkReceiver(sender, receiver, targetName)) {
+                return false;
+            }
+        }
+
         if (targetOnline && config.requireReceiverAccept()) {
             Player receiver = Bukkit.getPlayer(targetId);
             if (receiver != null) {
@@ -234,6 +249,11 @@ public final class DeliveryService {
             return false;
         }
 
+        if (!blockedZones.checkSender(sender) || !blockedZones.checkReceiver(sender, receiver, request.receiverName())) {
+            removeRequest(request);
+            return false;
+        }
+
         removeRequest(request);
         receiver.sendMessage(messages.component("request-accepted-receiver", sender.getName()));
         sender.sendMessage(messages.component("request-accepted-sender", receiver.getName()));
@@ -275,6 +295,15 @@ public final class DeliveryService {
         }
 
         if (!canAffordSend(sender)) {
+            return false;
+        }
+
+        Player receiverOnline = Bukkit.getPlayer(receiverId);
+        if (!blockedZones.checkSender(sender)) {
+            return false;
+        }
+        if (receiverOnline != null && receiverOnline.isOnline()
+                && !blockedZones.checkReceiver(sender, receiverOnline, receiverName)) {
             return false;
         }
 
@@ -321,6 +350,10 @@ public final class DeliveryService {
     }
 
     public boolean startStoredDelivery(Player recipient, StoredPackage storedPackage) {
+        if (!blockedZones.checkClaimPlayer(recipient)) {
+            return false;
+        }
+
         if (senderDrones.containsKey(storedPackage.senderId())) {
             purgeStaleSenderDrone(storedPackage.senderId());
         }

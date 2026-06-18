@@ -14,6 +14,7 @@ import bm.b0b0b0.soulDrone.listener.PlayerQuitListener;
 import bm.b0b0b0.soulDrone.repository.SqlPackageRepository;
 import bm.b0b0b0.soulDrone.service.DeliveryService;
 import bm.b0b0b0.soulDrone.service.StoredPackageService;
+import bm.b0b0b0.soulDrone.zone.BlockedZoneService;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class SoulDrone extends JavaPlugin {
@@ -32,6 +33,8 @@ public final class SoulDrone extends JavaPlugin {
         PluginConfig pluginConfig = new PluginConfig(configurationLoader);
         MessageService messageService = new MessageService(this, pluginConfig.language());
         VaultEconomyService vaultEconomyService = new VaultEconomyService(this);
+        BlockedZoneService blockedZoneService = new BlockedZoneService(this, pluginConfig, messageService);
+        blockedZoneService.logStartupState();
 
         droneManager = new DroneManager();
         droneManager.start(this);
@@ -48,7 +51,8 @@ public final class SoulDrone extends JavaPlugin {
                 messageService,
                 vaultEconomyService,
                 droneManager,
-                receiverToggleStore
+                receiverToggleStore,
+                blockedZoneService
         );
 
         SendCommand sendCommand = new SendCommand(pluginConfig, messageService, deliveryService);

@@ -7,6 +7,7 @@ authors: [ b0b0b0 ]
 softdepend:
   - Vault
   - Essentials
+  - WorldGuard
 
 libraries:
   - net.elytrium:serializer:1.1.1
@@ -40,4 +41,7 @@ permissions:
     default: true
   soulDrone.bypass-cost:
     description: Bypass Vault delivery cost
+    default: op
+  soulDrone.bypass-zones:
+    description: Bypass blocked worlds and regions for drones
     default: op

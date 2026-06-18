@@ -189,6 +189,13 @@ public class SoulDroneSettings extends YamlSerializable {
     public double clickRadius = 4.0;
 
     @NewLine
+    @Comment(@CommentValue("Миры, где дрон не появляется (имя мира Bukkit)"))
+    public List<String> blockedWorlds = new ArrayList<>();
+
+    @Comment(@CommentValue("Регионы WorldGuard: world:region_id или *:region_id для любого мира"))
+    public List<String> blockedRegions = new ArrayList<>();
+
+    @NewLine
     @Comment(@CommentValue("Сегменты модели: forward, lateral, vertical, material"))
     public List<DroneSegmentEntry> segments = defaultSegments();
 
@@ -225,6 +232,9 @@ public class SoulDroneSettings extends YamlSerializable {
 
     @Comment(@CommentValue("Permission: без оплаты Vault"))
     public String bypassCostPermission = "soulDrone.bypass-cost";
+
+    @Comment(@CommentValue("Permission: игнорировать запрещённые миры/регионы"))
+    public String bypassZonesPermission = "soulDrone.bypass-zones";
 
     @Comment(@CommentValue("Локаль сообщений: ru или en"))
     public String language = "ru";
