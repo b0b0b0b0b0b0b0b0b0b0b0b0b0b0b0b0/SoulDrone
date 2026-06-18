@@ -182,12 +182,19 @@ public final class DeliveryService {
         if (targetOnline && config.requireReceiverAccept()) {
             Player receiver = Bukkit.getPlayer(targetId);
             if (receiver != null) {
+                if (!canAffordSend(sender)) {
+                    return false;
+                }
                 return createRequest(sender, receiver);
             }
         }
 
         if (!targetOnline && config.requireReceiverAccept() && !config.autoAcceptOffline()) {
             sender.sendMessage(messages.component("target-needs-accept-online", targetName));
+            return false;
+        }
+
+        if (!canAffordSend(sender)) {
             return false;
         }
 
@@ -223,7 +230,6 @@ public final class DeliveryService {
 
         if (!canAffordSend(sender)) {
             receiver.sendMessage(messages.component("request-sender-no-funds"));
-            sender.sendMessage(messages.component("insufficient-funds", economy.format(config.sendCost())));
             removeRequest(request);
             return false;
         }
@@ -506,14 +512,35 @@ public final class DeliveryService {
         if (cost <= 0.0 || sender.hasPermission(config.bypassCostPermission())) {
             return true;
         }
-        if (config.requireVault() && !economy.isAvailable()) {
-            sender.sendMessage(messages.component("vault-unavailable"));
-            return false;
+        economy.refreshEconomy();
+        if (!economy.chargesDelivery(cost)) {
+            return true;
         }
-        if (economy.isAvailable() && !economy.has(sender, cost)) {
+        if (!economy.has(sender, cost)) {
             sender.sendMessage(messages.component("insufficient-funds", economy.format(cost)));
             return false;
         }
+        return true;
+    }
+
+    private boolean chargeForDelivery(Player sender, String receiverName) {
+        double cost = config.sendCost();
+        if (cost <= 0.0 || sender.hasPermission(config.bypassCostPermission())) {
+            return true;
+        }
+        economy.refreshEconomy();
+        if (!economy.chargesDelivery(cost)) {
+            return true;
+        }
+        if (!economy.has(sender, cost)) {
+            sender.sendMessage(messages.component("insufficient-funds", economy.format(cost)));
+            return false;
+        }
+        if (!economy.withdraw(sender, cost)) {
+            sender.sendMessage(messages.component("vault-unavailable"));
+            return false;
+        }
+        sender.sendMessage(messages.component("cost-charged", economy.format(cost), receiverName));
         return true;
     }
 
@@ -792,26 +819,9 @@ public final class DeliveryService {
             return;
         }
 
-        double cost = config.sendCost();
-        if (cost > 0.0 && !sender.hasPermission(config.bypassCostPermission())) {
-            if (config.requireVault() && !economy.isAvailable()) {
-                sender.sendMessage(messages.component("vault-unavailable"));
-                menu.returnCargoToPlayer(sender);
-                return;
-            }
-            if (economy.isAvailable()) {
-                if (!economy.has(sender, cost)) {
-                    sender.sendMessage(messages.component("insufficient-funds", economy.format(cost)));
-                    menu.returnCargoToPlayer(sender);
-                    return;
-                }
-                if (!economy.withdraw(sender, cost)) {
-                    sender.sendMessage(messages.component("vault-unavailable"));
-                    menu.returnCargoToPlayer(sender);
-                    return;
-                }
-                sender.sendMessage(messages.component("cost-charged", economy.format(cost)));
-            }
+        if (!chargeForDelivery(sender, drone.receiverName())) {
+            menu.returnCargoToPlayer(sender);
+            return;
         }
 
         drone.loadCargo(menu.extractCargoBySlot());

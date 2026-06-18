@@ -13,11 +13,8 @@ public class SoulDroneSettings extends YamlSerializable {
 
     private static final SerializerConfig CONFIG = new SerializerConfig.Builder().build();
 
-    @Comment(@CommentValue("Стоимость отправки через Vault. 0 = бесплатно"))
+    @Comment(@CommentValue("Стоимость отправки через Vault. 0 = бесплатно. Нет Economy на сервере — тоже бесплатно (см. консоль при старте)"))
     public double sendCost = 50.0;
-
-    @Comment(@CommentValue("Требовать Vault для отправки"))
-    public boolean requireVault = false;
 
     @NewLine
     @Comment(@CommentValue("SQLite файл (относительно папки плагина)"))

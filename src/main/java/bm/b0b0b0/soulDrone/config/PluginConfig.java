@@ -27,10 +27,6 @@ public final class PluginConfig {
         return Math.max(0.0, settings.sendCost);
     }
 
-    public boolean requireVault() {
-        return settings.requireVault;
-    }
-
     public String sqliteFile() {
         return settings.sqliteFile;
     }

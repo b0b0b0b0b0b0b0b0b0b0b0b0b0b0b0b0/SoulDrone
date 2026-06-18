@@ -86,6 +86,9 @@ public final class SoulDrone extends JavaPlugin {
             deliveryService.setStoredPackageService(storedPackageService);
             getLogger().info("Package storage ready");
         }));
+
+        getServer().getScheduler().runTask(this, () ->
+                vaultEconomyService.logDeliveryPricing(pluginConfig.sendCost()));
     }
 
     @Override
