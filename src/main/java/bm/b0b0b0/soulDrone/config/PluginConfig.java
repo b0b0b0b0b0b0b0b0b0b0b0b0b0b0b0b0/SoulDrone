@@ -14,11 +14,16 @@ public final class PluginConfig {
 
     private final SoulDroneSettings settings;
     private final GuiDeliverySettings guiSettings;
-    private final List<DroneVisual.SegmentSpec> segmentSpecs;
-    private final Set<Integer> cargoSlots;
+    private List<DroneVisual.SegmentSpec> segmentSpecs;
+    private Set<Integer> cargoSlots;
+
     public PluginConfig(ConfigurationLoader loader) {
         this.settings = loader.settings();
         this.guiSettings = loader.guiSettings();
+        reloadDerived();
+    }
+
+    public void reloadDerived() {
         this.segmentSpecs = parseSegments(settings.segments);
         this.cargoSlots = new HashSet<>(guiSettings.cargoSlots);
     }
@@ -352,6 +357,34 @@ public final class PluginConfig {
 
     public String language() {
         return settings.language;
+    }
+
+    public String reloadSubcommand() {
+        return settings.reloadSubcommand;
+    }
+
+    public String reloadPermission() {
+        return settings.reloadPermission;
+    }
+
+    public String commandLabel() {
+        if (settings.commandLabel == null || settings.commandLabel.isBlank()) {
+            return "drone";
+        }
+        return settings.commandLabel;
+    }
+
+    public String command(String subcommand, String... args) {
+        StringBuilder builder = new StringBuilder('/').append(commandLabel());
+        if (subcommand != null && !subcommand.isBlank()) {
+            builder.append(' ').append(subcommand);
+            for (String arg : args) {
+                if (arg != null && !arg.isBlank()) {
+                    builder.append(' ').append(arg);
+                }
+            }
+        }
+        return builder.toString();
     }
 
     private static List<DroneVisual.SegmentSpec> parseSegments(List<SoulDroneSettings.DroneSegmentEntry> entries) {

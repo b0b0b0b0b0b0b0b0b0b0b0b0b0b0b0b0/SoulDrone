@@ -452,8 +452,8 @@ public final class DeliveryService {
         scheduleRequestTimeout(request);
 
         sender.sendMessage(messages.component("request-sent", receiver.getName()));
-        String acceptCommand = "/send " + config.acceptSubcommand() + " " + sender.getName();
-        String denyCommand = "/send " + config.denySubcommand() + " " + sender.getName();
+        String acceptCommand = config.command(config.acceptSubcommand(), sender.getName());
+        String denyCommand = config.command(config.denySubcommand(), sender.getName());
         receiver.sendMessage(messages.component(
                 "request-received",
                 sender.getName(),

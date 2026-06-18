@@ -26,7 +26,7 @@ public class SoulDroneSettings extends YamlSerializable {
     @Comment(@CommentValue("Хранить посылки в БД (сутки). После — удаление"))
     public double packageStorageDays = 10.0;
 
-    @Comment(@CommentValue("Разрешить /send оффлайн игрокам"))
+    @Comment(@CommentValue("Разрешить /drone оффлайн игрокам"))
     public boolean allowOfflineSend = true;
 
     @Comment(@CommentValue("Оффлайн получатель: не ждать accept, сразу груз"))
@@ -38,8 +38,11 @@ public class SoulDroneSettings extends YamlSerializable {
     @Comment(@CommentValue("Подкоманда отказаться от посылки в БД"))
     public String refuseSubcommand = "refuse";
 
+    @Comment(@CommentValue("Подкоманда перезагрузки config/gui/lang"))
+    public String reloadSubcommand = "reload";
+
     @NewLine
-    @Comment(@CommentValue("Получатель должен принять запрос (/send accept)"))
+    @Comment(@CommentValue("Получатель должен принять запрос (/drone accept)"))
     public boolean requireReceiverAccept = true;
 
     @Comment(@CommentValue("Время на accept/deny (секунды)"))
@@ -200,13 +203,16 @@ public class SoulDroneSettings extends YamlSerializable {
     public List<DroneSegmentEntry> segments = defaultSegments();
 
     @NewLine
-    @Comment(@CommentValue("Permission: /send"))
+    @Comment(@CommentValue("Имя команды в сообщениях и кликабельных ссылках (основная команда в plugin.yml)"))
+    public String commandLabel = "drone";
+
+    @Comment(@CommentValue("Permission: /drone"))
     public String sendPermission = "soulDrone.send";
 
-    @Comment(@CommentValue("Permission: /send accept"))
+    @Comment(@CommentValue("Permission: /drone accept"))
     public String acceptPermission = "soulDrone.accept";
 
-    @Comment(@CommentValue("Permission: /send deny"))
+    @Comment(@CommentValue("Permission: /drone deny"))
     public String denyPermission = "soulDrone.deny";
 
     @Comment(@CommentValue("Подкоманда принятия"))
@@ -221,7 +227,7 @@ public class SoulDroneSettings extends YamlSerializable {
     @Comment(@CommentValue("По умолчанию игрок принимает посылки"))
     public boolean defaultReceivesDrones = true;
 
-    @Comment(@CommentValue("Permission: /send toggle"))
+    @Comment(@CommentValue("Permission: /drone toggle"))
     public String togglePermission = "soulDrone.toggle";
 
     @Comment(@CommentValue("Permission: открыть грузовое меню у отправителя"))
@@ -235,6 +241,9 @@ public class SoulDroneSettings extends YamlSerializable {
 
     @Comment(@CommentValue("Permission: игнорировать запрещённые миры/регионы"))
     public String bypassZonesPermission = "soulDrone.bypass-zones";
+
+    @Comment(@CommentValue("Permission: /drone reload"))
+    public String reloadPermission = "soulDrone.reload";
 
     @Comment(@CommentValue("Локаль сообщений: ru или en"))
     public String language = "ru";

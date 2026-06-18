@@ -15,23 +15,23 @@ libraries:
   - org.xerial:sqlite-jdbc:3.45.3.0
 
 commands:
-  send:
+  drone:
     description: Send a package via delivery drone
-    aliases: [ drone, posylka ]
-    usage: /send <player|accept|deny|toggle|claim|refuse>
+    aliases: [ send, posylka ]
+    usage: /drone <player|accept|deny|toggle|claim|refuse|reload>
 
 permissions:
   soulDrone.send:
-    description: Allows /send command
+    description: Allows /drone command
     default: true
   soulDrone.accept:
-    description: Allows /send accept
+    description: Allows /drone accept
     default: true
   soulDrone.deny:
-    description: Allows /send deny
+    description: Allows /drone deny
     default: true
   soulDrone.toggle:
-    description: Allows /send toggle
+    description: Allows /drone toggle
     default: true
   soulDrone.open:
     description: Allows opening cargo menu on sender drone
@@ -44,4 +44,7 @@ permissions:
     default: op
   soulDrone.bypass-zones:
     description: Bypass blocked worlds and regions for drones
+    default: op
+  soulDrone.reload:
+    description: Reload SoulDrone config, GUI settings and lang files
     default: op

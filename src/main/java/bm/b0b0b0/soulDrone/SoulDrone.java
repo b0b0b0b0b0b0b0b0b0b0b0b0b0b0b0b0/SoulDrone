@@ -1,6 +1,7 @@
 package bm.b0b0b0.soulDrone;
 
 import bm.b0b0b0.soulDrone.command.SendCommand;
+import bm.b0b0b0.soulDrone.config.ConfigReloader;
 import bm.b0b0b0.soulDrone.config.ConfigurationLoader;
 import bm.b0b0b0.soulDrone.config.PluginConfig;
 import bm.b0b0b0.soulDrone.data.ReceiverToggleStore;
@@ -22,6 +23,7 @@ public final class SoulDrone extends JavaPlugin {
     private DroneManager droneManager;
     private ReceiverToggleStore receiverToggleStore;
     private DatabaseBootstrap databaseBootstrap;
+    private ConfigurationLoader configurationLoader;
 
     @Override
     public void onEnable() {
@@ -29,12 +31,20 @@ public final class SoulDrone extends JavaPlugin {
             getLogger().warning("Could not create plugin data folder");
         }
 
-        ConfigurationLoader configurationLoader = new ConfigurationLoader(this);
+        configurationLoader = new ConfigurationLoader(this);
         PluginConfig pluginConfig = new PluginConfig(configurationLoader);
         MessageService messageService = new MessageService(this, pluginConfig.language());
         VaultEconomyService vaultEconomyService = new VaultEconomyService(this);
         BlockedZoneService blockedZoneService = new BlockedZoneService(this, pluginConfig, messageService);
         blockedZoneService.logStartupState();
+        ConfigReloader configReloader = new ConfigReloader(
+                this,
+                configurationLoader,
+                pluginConfig,
+                messageService,
+                blockedZoneService,
+                vaultEconomyService
+        );
 
         droneManager = new DroneManager();
         droneManager.start(this);
@@ -55,9 +65,9 @@ public final class SoulDrone extends JavaPlugin {
                 blockedZoneService
         );
 
-        SendCommand sendCommand = new SendCommand(pluginConfig, messageService, deliveryService);
-        getCommand("send").setExecutor(sendCommand);
-        getCommand("send").setTabCompleter(sendCommand);
+        SendCommand sendCommand = new SendCommand(pluginConfig, messageService, deliveryService, configReloader);
+        getCommand("drone").setExecutor(sendCommand);
+        getCommand("drone").setTabCompleter(sendCommand);
 
         getServer().getPluginManager().registerEvents(
                 new DeliveryListener(pluginConfig, deliveryService, droneManager),

@@ -1,5 +1,6 @@
 package bm.b0b0b0.soulDrone.command;
 
+import bm.b0b0b0.soulDrone.config.ConfigReloader;
 import bm.b0b0b0.soulDrone.config.PluginConfig;
 import bm.b0b0b0.soulDrone.lang.MessageService;
 import bm.b0b0b0.soulDrone.service.DeliveryService;
@@ -21,17 +22,28 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
     private final PluginConfig config;
     private final MessageService messages;
     private final DeliveryService deliveryService;
+    private final ConfigReloader configReloader;
 
-    public SendCommand(PluginConfig config, MessageService messages, DeliveryService deliveryService) {
+    public SendCommand(
+            PluginConfig config,
+            MessageService messages,
+            DeliveryService deliveryService,
+            ConfigReloader configReloader
+    ) {
         this.config = config;
         this.messages = messages;
         this.deliveryService = deliveryService;
+        this.configReloader = configReloader;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length >= 1 && matchesSubcommand(args[0], config.reloadSubcommand())) {
+            return handleReload(sender, args);
+        }
+
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(messages.component("players-only"));
+            sender.sendMessage(messages.component("console-reload-only", config.command(config.reloadSubcommand())));
             return true;
         }
 
@@ -68,6 +80,19 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
         }
 
         return handleSendToTarget(player, args[0]);
+    }
+
+    private boolean handleReload(CommandSender sender, String[] args) {
+        if (args.length != 1) {
+            sender.sendMessage(messages.component("send-usage"));
+            return true;
+        }
+        if (!sender.hasPermission(config.reloadPermission())) {
+            sender.sendMessage(messages.component("no-reload-permission"));
+            return true;
+        }
+        configReloader.reload(sender);
+        return true;
     }
 
     private boolean handleSendToTarget(Player sender, String targetName) {
@@ -179,13 +204,18 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!(sender instanceof Player player)) {
-            return List.of();
-        }
-
         if (args.length == 1) {
             List<String> suggestions = new ArrayList<>();
             String prefix = args[0].toLowerCase(Locale.ROOT);
+
+            if (sender.hasPermission(config.reloadPermission())
+                    && config.reloadSubcommand().toLowerCase(Locale.ROOT).startsWith(prefix)) {
+                suggestions.add(config.reloadSubcommand());
+            }
+
+            if (!(sender instanceof Player player)) {
+                return suggestions;
+            }
 
             addSubcommandSuggestion(suggestions, prefix, config.acceptSubcommand(), config.acceptPermission(), player);
             addSubcommandSuggestion(suggestions, prefix, config.denySubcommand(), config.denyPermission(), player);
@@ -204,6 +234,10 @@ public final class SendCommand implements CommandExecutor, TabCompleter {
                 }
             }
             return suggestions;
+        }
+
+        if (!(sender instanceof Player player)) {
+            return List.of();
         }
 
         if (args.length == 2) {

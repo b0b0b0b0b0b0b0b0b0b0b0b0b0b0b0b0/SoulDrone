@@ -52,6 +52,12 @@ public final class MessageService {
         return MINI_MESSAGE.deserialize(line);
     }
 
+    public void reload(JavaPlugin plugin, String language) {
+        messages.clear();
+        dronePunchLines.clear();
+        load(plugin, language);
+    }
+
     private void load(JavaPlugin plugin, String language) {
         File langDir = new File(plugin.getDataFolder(), "lang");
         if (!langDir.exists() && !langDir.mkdirs()) {

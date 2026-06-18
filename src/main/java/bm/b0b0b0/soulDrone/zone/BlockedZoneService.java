@@ -41,6 +41,15 @@ public final class BlockedZoneService {
         }
     }
 
+    public void reload() {
+        blockedWorlds.clear();
+        blockedWorlds.addAll(normalizeWorlds(config.blockedWorlds()));
+        blockedRegions.clear();
+        blockedRegions.addAll(parseRegions(config.blockedRegions()));
+        warnedMissingWorldGuard = false;
+        logStartupState();
+    }
+
     public boolean checkSender(Player sender) {
         return checkPlayer(sender, sender, true);
     }

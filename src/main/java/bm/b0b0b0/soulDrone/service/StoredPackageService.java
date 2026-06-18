@@ -197,8 +197,8 @@ public final class StoredPackageService {
             player.sendMessage(messages.component("stored-refused-receiver", storedPackage.senderName()));
             Player sender = Bukkit.getPlayer(storedPackage.senderId());
             if (sender != null && sender.isOnline()) {
-                String claimCommand = "/send " + config.claimSubcommand() + " " + storedPackage.id();
-                String refuseCommand = "/send " + config.refuseSubcommand() + " " + storedPackage.id();
+                String claimCommand = config.command(config.claimSubcommand(), storedPackage.id().toString());
+                String refuseCommand = config.command(config.refuseSubcommand(), storedPackage.id().toString());
                 sender.sendMessage(messages.component(
                         "stored-notify-sender",
                         storedPackage.receiverName(),
@@ -232,8 +232,8 @@ public final class StoredPackageService {
     }
 
     private void notifyStoredPackage(Player player, StoredPackage storedPackage) {
-        String claimCommand = "/send " + config.claimSubcommand() + " " + storedPackage.id();
-        String refuseCommand = "/send " + config.refuseSubcommand() + " " + storedPackage.id();
+        String claimCommand = config.command(config.claimSubcommand(), storedPackage.id().toString());
+        String refuseCommand = config.command(config.refuseSubcommand(), storedPackage.id().toString());
         if (storedPackage.kind() == StoredPackageKind.TO_RECEIVER) {
             player.sendMessage(messages.component(
                     "stored-notify-receiver",
