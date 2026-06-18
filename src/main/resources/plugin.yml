@@ -1,0 +1,40 @@
+name: SoulDrone
+version: '${version}'
+main: bm.b0b0b0.soulDrone.SoulDrone
+api-version: '1.21'
+authors: [ b0b0b0 ]
+
+softdepend:
+  - Vault
+
+libraries:
+  - net.elytrium:serializer:1.1.1
+
+commands:
+  send:
+    description: Send a package via delivery drone
+    aliases: [ drone, posylka ]
+    usage: /send <player|accept|deny>
+
+permissions:
+  soulDrone.send:
+    description: Allows /send command
+    default: true
+  soulDrone.accept:
+    description: Allows /send accept
+    default: true
+  soulDrone.deny:
+    description: Allows /send deny
+    default: true
+  soulDrone.toggle:
+    description: Allows /send toggle
+    default: true
+  soulDrone.open:
+    description: Allows opening cargo menu on sender drone
+    default: true
+  soulDrone.receive:
+    description: Allows picking up packages from delivery drone
+    default: true
+  soulDrone.bypass-cost:
+    description: Bypass Vault delivery cost
+    default: op
