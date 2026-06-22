@@ -348,12 +348,27 @@ public final class DeliveryDrone {
     }
 
     public void forceRemove() {
-        beginLeaving(false);
+        abort();
+    }
+
+    public void abort() {
+        if (phase == DeliveryPhase.DONE) {
+            return;
+        }
+        if (visual != null) {
+            visual.remove();
+            visual = null;
+        }
+        finish(false);
+    }
+
+    private boolean continueTickingAfterLeave() {
+        return phase != DeliveryPhase.DONE;
     }
 
     private boolean tickAssembly() {
         if (!tickSenderIdleTimeout()) {
-            return false;
+            return continueTickingAfterLeave();
         }
 
         if (visual == null) {
@@ -391,7 +406,7 @@ public final class DeliveryDrone {
             return tickReturnPickupWait();
         }
         if (!tickSenderIdleTimeout()) {
-            return false;
+            return continueTickingAfterLeave();
         }
 
         followSender();
@@ -416,7 +431,7 @@ public final class DeliveryDrone {
         if (phaseTick >= phaseLimit) {
             returnCargoToSender();
             beginLeaving(false);
-            return false;
+            return continueTickingAfterLeave();
         }
         return true;
     }
@@ -431,9 +446,10 @@ public final class DeliveryDrone {
         }
         if (onSenderTimeout != null) {
             onSenderTimeout.run();
+            onSenderTimeout = null;
         }
         beginLeaving(false);
-        return false;
+        return continueTickingAfterLeave();
     }
 
     private boolean tickDeparting() {
@@ -493,7 +509,7 @@ public final class DeliveryDrone {
             cargo.clear();
             cargoLoaded = false;
             beginLeaving(false);
-            return false;
+            return continueTickingAfterLeave();
         }
 
         world = target.getWorld();
@@ -525,7 +541,7 @@ public final class DeliveryDrone {
             cargo.clear();
             cargoLoaded = false;
             beginLeaving(false);
-            return false;
+            return continueTickingAfterLeave();
         }
 
         world = target.getWorld();

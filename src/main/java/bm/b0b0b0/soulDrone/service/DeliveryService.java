@@ -26,6 +26,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -139,7 +140,26 @@ public final class DeliveryService {
         }
 
         closeOpenMenu(playerId);
-        drone.forceRemove();
+        abandonSenderDrone(playerId, drone);
+    }
+
+    public void reconcileAfterReload() {
+        int purged = 0;
+        for (UUID senderId : new ArrayList<>(senderDrones.keySet())) {
+            DeliveryDrone drone = senderDrones.get(senderId);
+            if (drone == null) {
+                senderDrones.remove(senderId);
+                purged++;
+                continue;
+            }
+            if (drone.phase() == DeliveryPhase.DONE || !droneManager.isRegistered(drone)) {
+                abandonSenderDrone(senderId, drone);
+                purged++;
+            }
+        }
+        if (purged > 0) {
+            plugin.getLogger().info("Reconciled " + purged + " stale drone session(s) after reload");
+        }
     }
 
     public boolean toggleReceiving(Player player) {
@@ -880,9 +900,23 @@ public final class DeliveryService {
 
     private void purgeStaleSenderDrone(UUID senderId) {
         DeliveryDrone drone = senderDrones.get(senderId);
-        if (drone != null && drone.phase() == DeliveryPhase.DONE) {
-            senderDrones.remove(senderId);
+        if (drone == null) {
+            return;
         }
+        if (drone.phase() == DeliveryPhase.DONE || !droneManager.isRegistered(drone)) {
+            abandonSenderDrone(senderId, drone);
+        }
+    }
+
+    private void abandonSenderDrone(UUID senderId, DeliveryDrone drone) {
+        closeOpenMenu(senderId);
+        closeOpenPickupMenu(drone.receiverId());
+        droneManager.unregister(drone);
+        if (drone.phase() != DeliveryPhase.DONE) {
+            drone.abort();
+            return;
+        }
+        senderDrones.remove(senderId);
     }
 
     private void cleanupSender(UUID senderId, UUID droneId) {

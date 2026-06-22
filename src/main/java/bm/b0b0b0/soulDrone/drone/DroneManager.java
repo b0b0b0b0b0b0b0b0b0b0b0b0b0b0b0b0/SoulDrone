@@ -111,6 +111,10 @@ public final class DroneManager {
         return nearest;
     }
 
+    public boolean isRegistered(DeliveryDrone drone) {
+        return activeDrones.contains(drone);
+    }
+
     public void shutdown() {
         if (tickTask != null) {
             tickTask.cancel();

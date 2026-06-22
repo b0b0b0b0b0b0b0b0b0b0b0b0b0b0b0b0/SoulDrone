@@ -2,6 +2,7 @@ package bm.b0b0b0.soulDrone.config;
 
 import bm.b0b0b0.soulDrone.economy.VaultEconomyService;
 import bm.b0b0b0.soulDrone.lang.MessageService;
+import bm.b0b0b0.soulDrone.service.DeliveryService;
 import bm.b0b0b0.soulDrone.zone.BlockedZoneService;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -14,6 +15,7 @@ public final class ConfigReloader {
     private final MessageService messages;
     private final BlockedZoneService blockedZones;
     private final VaultEconomyService economy;
+    private final DeliveryService deliveryService;
 
     public ConfigReloader(
             JavaPlugin plugin,
@@ -21,7 +23,8 @@ public final class ConfigReloader {
             PluginConfig config,
             MessageService messages,
             BlockedZoneService blockedZones,
-            VaultEconomyService economy
+            VaultEconomyService economy,
+            DeliveryService deliveryService
     ) {
         this.plugin = plugin;
         this.configurationLoader = configurationLoader;
@@ -29,6 +32,7 @@ public final class ConfigReloader {
         this.messages = messages;
         this.blockedZones = blockedZones;
         this.economy = economy;
+        this.deliveryService = deliveryService;
     }
 
     public boolean reload(CommandSender sender) {
@@ -37,6 +41,7 @@ public final class ConfigReloader {
             config.reloadDerived();
             messages.reload(plugin, config.language());
             blockedZones.reload();
+            deliveryService.reconcileAfterReload();
             economy.refreshEconomy();
             economy.logDeliveryPricing(config.sendCost());
             sender.sendMessage(messages.component("reload-success"));

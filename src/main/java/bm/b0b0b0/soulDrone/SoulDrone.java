@@ -37,14 +37,6 @@ public final class SoulDrone extends JavaPlugin {
         VaultEconomyService vaultEconomyService = new VaultEconomyService(this);
         BlockedZoneService blockedZoneService = new BlockedZoneService(this, pluginConfig, messageService);
         blockedZoneService.logStartupState();
-        ConfigReloader configReloader = new ConfigReloader(
-                this,
-                configurationLoader,
-                pluginConfig,
-                messageService,
-                blockedZoneService,
-                vaultEconomyService
-        );
 
         droneManager = new DroneManager();
         droneManager.start(this);
@@ -63,6 +55,16 @@ public final class SoulDrone extends JavaPlugin {
                 droneManager,
                 receiverToggleStore,
                 blockedZoneService
+        );
+
+        ConfigReloader configReloader = new ConfigReloader(
+                this,
+                configurationLoader,
+                pluginConfig,
+                messageService,
+                blockedZoneService,
+                vaultEconomyService,
+                deliveryService
         );
 
         SendCommand sendCommand = new SendCommand(pluginConfig, messageService, deliveryService, configReloader);
